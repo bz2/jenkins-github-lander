@@ -8,6 +8,7 @@ from jenkinsgithublander.github import (
     get_open_pull_requests,
     GithubInfo,
     GithubError,
+    make_pull_request_info,
     merge_pull_request,
     mergeable_pull_requests,
     pull_request_build_failed,
@@ -263,7 +264,7 @@ class TestGithubHelpers(TestCase):
         mergeable = mergeable_pull_requests('$$merge$$', info)
 
         self.assertEqual(1, len(mergeable))
-        self.assertEqual(5, mergeable[0]['number'])
+        self.assertEqual(5, mergeable[0].number)
 
     @responses.activate
     def test_merge_pull_request(self):
@@ -412,6 +413,7 @@ class TestGithubHelpers(TestCase):
         )
 
         info = GithubInfo('juju', 'project', 'jujugui', None)
-        resp = pull_request_kicked(pull_request, 'http://jenkins/job/1', info)
+        pr_info = make_pull_request_info(pull_request)
+        resp = pull_request_kicked(pr_info, 'http://jenkins/job/1', info)
         comment = resp['body']
         self.assertIn(github.MERGE_SCHEDULED, comment)
