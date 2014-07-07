@@ -30,6 +30,26 @@ class TestGithubError(TestCase):
 
 class TestGithubHelpers(TestCase):
 
+    def add_user_orgs_response(self, user="jujugui"):
+        user_orgs = load_data('github-user-orgs.json')
+        responses.add(
+            responses.GET,
+            'https://api.github.com/users/{}/orgs'.format(user),
+            body=user_orgs,
+            status=200,
+            content_type='application/json'
+        )
+
+    def add_open_pulls_response(self, user="juju", repo="project"):
+        resp_json = load_data('github-open-pulls.json')
+        responses.add(
+            responses.GET,
+            'https://api.github.com/repos/{}/{}/pulls'.format(user, repo),
+            body=resp_json,
+            status=200,
+            content_type='application/json'
+        )
+
     def test_build_url_helper(self):
         """Should build a url given a path and a GithubInfo Tuple"""
         info = GithubInfo('juju', 'gui', 'jujugui', '1234')
@@ -54,14 +74,7 @@ class TestGithubHelpers(TestCase):
 
     @responses.activate
     def test_user_is_not_in_org(self):
-        user_orgs = load_data('github-user-orgs.json')
-        responses.add(
-            responses.GET,
-            'https://api.github.com/users/jujugui/orgs',
-            body=user_orgs,
-            status=200,
-            content_type='application/json'
-        )
+        self.add_user_orgs_response()
 
         info = GithubInfo('juju', 'gui', 'jujugui', '1234')
         in_org = github.user_is_in_org('jujugui', 'noexist', info)
@@ -70,14 +83,7 @@ class TestGithubHelpers(TestCase):
 
     @responses.activate
     def test_user_is_in_org(self):
-        user_orgs = load_data('github-user-orgs.json')
-        responses.add(
-            responses.GET,
-            'https://api.github.com/users/jujugui/orgs',
-            body=user_orgs,
-            status=200,
-            content_type='application/json'
-        )
+        self.add_user_orgs_response()
 
         info = GithubInfo('juju', 'gui', 'jujugui', '1234')
         in_org = github.user_is_in_org('jujugui', 'CanonicalJS', info)
@@ -101,15 +107,7 @@ class TestGithubHelpers(TestCase):
     @responses.activate
     def test_open_pull_requests(self):
         """Verify we can parse the list."""
-        resp_json = load_data('github-open-pulls.json')
-
-        responses.add(
-            responses.GET,
-            'https://api.github.com/repos/juju/project/pulls',
-            body=resp_json,
-            status=200,
-            content_type='application/json'
-        )
+        self.add_open_pulls_response()
 
         info = GithubInfo('juju', 'project', 'jujugui', None)
         open_requests = get_open_pull_requests(info)
@@ -123,21 +121,13 @@ class TestGithubHelpers(TestCase):
 
     @responses.activate
     def test_no_mergeable_pull_requests(self):
-        pulls = load_data('github-open-pulls.json')
-
-        responses.add(
-            responses.GET,
-            'https://api.github.com/repos/juju/project/pulls',
-            body=pulls,
-            status=200,
-            content_type='application/json'
-        )
-
         comments = load_data(
             'github-pull-request-comments.json',
             load_json=True)
         # Remove the first comment since it's the trigger one.
         comments.pop(0)
+
+        self.add_open_pulls_response()
 
         responses.add(
             responses.GET,
@@ -157,7 +147,6 @@ class TestGithubHelpers(TestCase):
 
     @responses.activate
     def test_not_mergeable_if_not_in_org(self):
-        pulls = load_data('github-open-pulls.json')
         orgs = load_data('github-user-orgs.json', load_json=True)
         comments = load_data('github-pull-request-comments.json')
 
@@ -173,13 +162,7 @@ class TestGithubHelpers(TestCase):
             content_type='application/json'
         )
 
-        responses.add(
-            responses.GET,
-            'https://api.github.com/repos/juju/project/pulls',
-            body=pulls,
-            status=200,
-            content_type='application/json'
-        )
+        self.add_open_pulls_response()
 
         responses.add(
             responses.GET,
@@ -199,8 +182,6 @@ class TestGithubHelpers(TestCase):
 
     @responses.activate
     def test_not_mergable_if_already_merging(self):
-        pulls = load_data('github-open-pulls.json')
-        orgs = load_data('github-user-orgs.json')
         comments = load_data(
             'github-pull-request-comments.json', load_json=True)
 
@@ -210,20 +191,8 @@ class TestGithubHelpers(TestCase):
             'github-new-issue-comment.json', load_json=True)
         comments.append(merging_comment)
 
-        responses.add(
-            responses.GET,
-            'https://api.github.com/users/mitechie/orgs',
-            body=orgs,
-            status=200,
-            content_type='application/json'
-        )
-        responses.add(
-            responses.GET,
-            'https://api.github.com/repos/CanonicalJS/juju-gui/pulls',
-            body=pulls,
-            status=200,
-            content_type='application/json'
-        )
+        self.add_user_orgs_response("mitechie")
+        self.add_open_pulls_response("CanonicalJS", "juju-gui")
         responses.add(
             responses.GET,
             (
@@ -242,24 +211,10 @@ class TestGithubHelpers(TestCase):
 
     @responses.activate
     def test_mergeable_pull_requests(self):
-        pulls = load_data('github-open-pulls.json')
-        orgs = load_data('github-user-orgs.json')
         comments = load_data('github-pull-request-comments.json')
 
-        responses.add(
-            responses.GET,
-            'https://api.github.com/users/mitechie/orgs',
-            body=orgs,
-            status=200,
-            content_type='application/json'
-        )
-        responses.add(
-            responses.GET,
-            'https://api.github.com/repos/CanonicalJS/juju-gui/pulls',
-            body=pulls,
-            status=200,
-            content_type='application/json'
-        )
+        self.add_user_orgs_response("mitechie")
+        self.add_open_pulls_response("CanonicalJS", "juju-gui")
         responses.add(
             responses.GET,
             (
@@ -427,3 +382,52 @@ class TestGithubHelpers(TestCase):
         resp = pull_request_kicked(pull_request, 'http://jenkins/job/1', info)
         comment = resp['body']
         self.assertIn(github.MERGE_SCHEDULED, comment)
+
+    @responses.activate
+    def test_requeue_after_fail(self):
+        comments = load_data('github-pull-request-comments-requeue.json')
+
+        self.add_user_orgs_response("mitechie")
+        self.add_open_pulls_response("CanonicalJS", "juju-gui")
+        responses.add(
+            responses.GET,
+            (
+                u'https://api.github.com/repos/CanonicalJS/juju-gui/issues/5/'
+                u'comments'
+            ),
+            body=comments,
+            status=200,
+            content_type='application/json'
+        )
+
+        info = GithubInfo('CanonicalJS', 'juju-gui', 'jujugui', None)
+        mergeable = mergeable_pull_requests('$$merge$$', info)
+
+        self.assertEqual(1, len(mergeable))
+        self.assertEqual(5, mergeable[0]['number'])
+
+    @responses.activate
+    def test_requeue_after_fail_pending(self):
+        comments = load_data('github-pull-request-comments-requeue.json',
+            load_json=True)
+        # Remove the last comment, which is the second $$merge$$ marker
+        comments.pop()
+
+        self.add_user_orgs_response("mitechie")
+        self.add_open_pulls_response("CanonicalJS", "juju-gui")
+        responses.add(
+            responses.GET,
+            (
+                u'https://api.github.com/repos/CanonicalJS/juju-gui/issues/5/'
+                u'comments'
+            ),
+            body=json.dumps(comments),
+            status=200,
+            content_type='application/json'
+        )
+
+        info = GithubInfo('CanonicalJS', 'juju-gui', 'jujugui', None)
+        mergeable = mergeable_pull_requests('$$merge$$', info)
+
+        # No merge proposals as $$merge$$ has not been signaled since failure
+        self.assertEqual(0, len(mergeable))
